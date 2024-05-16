@@ -1,0 +1,47 @@
+from flask import Flask, jsonify
+from datetime import datetime
+from threading import Thread
+import requests
+import time
+
+app = Flask(__name__)
+
+# Configurações do Trello e do Power BI (substitua pelos seus próprios valores)
+TRELLO_BOARD_ID = '6633ec123337d0215654c3ad'
+TRELLO_API_KEY = '3906ae48aeda90f6c56640bc59d90f44'
+TRELLO_TOKEN = 'ATTAf757702c2185f8a45a00f2c0d8f64a99438501610c07e707ccaa55102040ad009B62AF1C'
+POWER_BI_STREAMING_DATASET_URL = 'https://api.powerbi.com/beta/161fea89-023b-440c-9ecb-f76df041cbf9/datasets/215f3a1f-9f59-4ac0-97c8-e227d28528ad/rows?experience=power-bi&key=kYH1IB7zgj78BNTx8AB0tLPrO5eEvfR0fQZFGo4jGOfAWqsx1uFgR6iil4ZZ5cHyKlqIy5fvOD7uJZKcbWOEuQ%3D%3D'
+
+# Função para obter os dados do Trello
+def get_trello_data():
+    while True:
+        try:
+            # Exemplo: obter todos os cartões do quadro
+            response = requests.get(f'https://api.trello.com/1/boards/{TRELLO_BOARD_ID}/cards?key={TRELLO_API_KEY}&token={TRELLO_TOKEN}')
+            data = response.json()
+            # Enviar os dados para o Power BI em tempo real
+            for card in data:
+                payload = {
+                    'timestamp': datetime.now().isoformat(),
+                    'name': card['name'],
+                    'description': card['desc']
+                }
+                # Enviar os dados para o Power BI
+                response = requests.post(POWER_BI_STREAMING_DATASET_URL, json=payload)
+                print(response.text)  # Apenas para depuração
+            time.sleep(60)  # Atualizar a cada minuto
+        except Exception as e:
+            print(f"Erro ao obter dados do Trello: {e}")
+            time.sleep(60)  # Tentar novamente em um minuto
+
+# Rota para verificar se a API está funcionando
+@app.route('/')
+def index():
+    return "API do Trello para Power BI está funcionando!"
+
+if __name__ == '__main__':
+    # Iniciar a função em uma thread separada
+    trello_thread = Thread(target=get_trello_data)
+    trello_thread.start()
+    # Iniciar o servidor Flask
+    app.run(debug=True)
